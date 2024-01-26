@@ -1,0 +1,139 @@
+﻿@page "/"
+@using MarcosTeste.Models;
+@using RestSharp;
+
+<PageTitle>Home</PageTitle>
+
+<h1>Categorias</h1>
+@if(_categories is null)
+{
+    <p>Loading...</p>
+}
+else 
+{
+    <table class="table">
+        <thead>
+            <th>Id</th>
+            <th>Title</th>
+            <th>Description</th>
+            <th></th>
+        </thead>
+        <tbody>
+            @foreach(var category in _categories)
+            {
+                <tr>
+                    <td>@category.Id</td>
+                    <td>@category.Title</td>
+                    <td>@category.Description</td>
+                    <td>
+                        <button class="btn btn-info" @onclick="() => GetByIdAsync(category.Id)">
+                            EDIT
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <hr>
+
+    <form class="form-control">
+        <div class="mb-3">
+            <label class="form-label">Id</label>
+            <input type="readonly" @bind="_category.Id">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Title</label>
+            <input type="text" @bind="_category.Title">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Description</label>
+            <input type="text" @bind="_category.Description">
+        </div>
+        @if(_category.Id != 0)
+        {
+            <button class="btn btn-info" @onclick="DeleteAsync">Delete</button>
+            <button class="btn-info" @onclick="NewCategory">New Category</button>
+        }
+        <button class="btn-primary" @onclick="SaveAsync">Save</button>
+    </form>
+}
+
+
+@code
+{
+    private List<Category>? _categories;
+    private Category? _category = new();
+
+        protected override async Task OnInitializedAsync()
+        {
+            var client = new RestClient();
+            var request = new RestRequest("http://localhost:5124/v1/categories");
+
+            _categories = await client.GetAsync<List<Category>?>(request);
+        }
+
+        private async Task SaveAsync()
+        {
+            var client = new RestClient();
+            Category? category;
+
+            if (_category?.Id == 0)
+            {
+                var request = new RestRequest("http://localhost:5124/v1/categories")
+                .AddJsonBody(_category);
+
+                 category = await client.PostAsync<Category?>(request);
+
+                if(category is not null)
+                {
+                    _categories?.Add(category);
+                    NewCategory();
+                }
+
+            }
+
+            else
+            {
+                var request = new RestRequest($"http://localhost:5124/v1/categories{_category.Id}")
+                    .AddJsonBody(_category);
+                 await client.PutAsync<Category>(request);
+                
+                var newCategory = _categories
+                    .FirstOrDefault(x => x.Id == _category?.Id);
+                
+                if (newCategory is not null)
+                {
+                    newCategory.Title = _category.Title;
+                    newCategory.Description = _category.Description;
+                }
+
+            }    
+
+        }
+
+        private async Task GetByIdAsync(int id)
+        {
+            var client = new RestClient();
+            var request = new RestRequest($"http://localhost:5124/v1/categories/{id}");
+
+            _category = await client.GetAsync<Category?>(request);
+
+
+        }
+
+        private async Task DeleteAsync()
+        {
+            var client = new RestClient();
+            var request = new RestRequest($"http://localhost:5124/v1/categories/{_category.Id}");
+            _category = await client.DeleteAsync<Category>(request);
+
+        }
+
+        private void NewCategory()
+        {
+            _category = new();
+        }
+    }
